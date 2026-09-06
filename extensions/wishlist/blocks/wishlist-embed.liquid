@@ -1,0 +1,18 @@
+<script>
+  window.WishlyCustomer = {
+    loggedIn: {% if customer %}true{% else %}false{% endif %},
+    id: {% if customer %}"{{ customer.id }}"{% else %}null{% endif %}
+  };
+
+  console.log("Wishly customer:", window.WishlyCustomer);
+</script>
+
+<script src="{{ 'wishlist.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Wishly",
+  "target": "body",
+  "settings": []
+}
+{% endschema %}

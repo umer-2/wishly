@@ -1,0 +1,43 @@
+<a
+  href="/pages/wishlist"
+  class="wishora-header"
+>
+  ♡
+  <span data-wishora-counter>0</span>
+</a>
+
+<style>
+  .wishora-header {
+    position: relative;
+    text-decoration: none;
+    font-size: 24px;
+  }
+
+  .wishora-header span {
+    position: absolute;
+    top: -8px;
+    right: -10px;
+
+    min-width: 18px;
+    height: 18px;
+
+    border-radius: 50%;
+
+    background: black;
+    color: white;
+
+    font-size: 11px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+</style>
+
+{% schema %}
+{
+  "name": "Wishlist header",
+  "target": "section",
+  "settings": []
+}
+{% endschema %}

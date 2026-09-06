@@ -1,0 +1,195 @@
+<div id="wishora-wishlist-page">
+  <h1 class="wishora-title">My Wishlist</h1>
+
+  <div
+    id="wishora-products"
+    class="wishora-products"
+  ></div>
+</div>
+
+<style>
+  .wishora-title {
+    margin-bottom: 30px;
+  }
+
+  .wishora-products {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+  }
+
+  .wishora-product {
+    position: relative;
+  }
+
+  .wishora-product img {
+    width: 100%;
+    display: block;
+  }
+
+  .wishora-product-info {
+    padding-top: 12px;
+  }
+
+  .wishora-product-title {
+    margin: 0 0 5px;
+    font-size: 16px;
+  }
+
+  .wishora-product-price {
+    margin-bottom: 12px;
+  }
+
+  .wishora-remove {
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+  }
+
+  @media (max-width: 749px) {
+    .wishora-products {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+</style>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const container = document.getElementById("wishora-products");
+
+    if (!container) {
+      return;
+    }
+
+    /*
+     * Get wishlist from Wishly
+     *
+     * Guest:
+     * localStorage → Wishly.getWishlist()
+     *
+     * Logged-in:
+     * We will connect this to the API later.
+     */
+    const wishlist = window.Wishly?.getWishlist() || [];
+
+    console.log("Wishly wishlist page:", wishlist);
+
+    /*
+     * Empty wishlist
+     */
+    if (!wishlist.length) {
+      container.innerHTML = `
+        <p class="wishora-empty">
+          Your wishlist is empty.
+        </p>
+      `;
+
+      return;
+    }
+
+    /*
+     * Render saved wishlist items
+     */
+    container.innerHTML = wishlist
+      .map(function (item) {
+        const productId = item.productId;
+        const handle = item.handle || "";
+
+        return `
+          <div
+            class="wishora-product"
+            data-product-id="${productId}"
+          >
+
+            <div class="wishora-product-info">
+
+              <h3 class="wishora-product-title">
+                ${handle || "Wishlist Product"}
+              </h3>
+
+              <p class="wishora-product-id">
+                Product ID: ${productId}
+              </p>
+
+              <button
+                type="button"
+                class="wishora-remove"
+                data-remove-wishora="${productId}"
+              >
+                Remove
+              </button>
+
+            </div>
+
+          </div>
+        `;
+      })
+      .join("");
+
+    /*
+     * Remove product from wishlist
+     */
+    container.addEventListener("click", function (event) {
+      const removeButton = event.target.closest(
+        "[data-remove-wishora]"
+      );
+
+      if (!removeButton) {
+        return;
+      }
+
+      const productId =
+        removeButton.dataset.removeWishora;
+
+      if (!productId) {
+        return;
+      }
+
+      /*
+       * Remove using Wishly's existing function
+       */
+      if (window.Wishly?.removeFromWishlist) {
+        window.Wishly.removeFromWishlist(productId);
+      }
+
+      /*
+       * Remove the product card from the page
+       */
+      const productElement =
+        removeButton.closest(".wishora-product");
+
+      if (productElement) {
+        productElement.remove();
+      }
+
+      /*
+       * Check if wishlist is now empty
+       */
+      const remainingProducts =
+        container.querySelectorAll(".wishora-product");
+
+      if (!remainingProducts.length) {
+        container.innerHTML = `
+          <p class="wishora-empty">
+            Your wishlist is empty.
+          </p>
+        `;
+      }
+
+      console.log(
+        "Wishly: Removed from wishlist page",
+        productId
+      );
+    });
+  });
+</script>
+
+{% schema %}
+{
+  "name": "Wishlist page",
+  "target": "section",
+  "settings": []
+}
+{% endschema %}
