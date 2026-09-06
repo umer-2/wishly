@@ -56,133 +56,217 @@
 </style>
 
 <script>
-  document.addEventListener("DOMContentLoaded", function () {
-    const container = document.getElementById("wishora-products");
+  document.addEventListener("DOMContentLoaded", async function () {
+    const container =
+      document.getElementById("wishora-products");
 
     if (!container) {
       return;
     }
 
-    /*
-     * Get wishlist from Wishly
-     *
-     * Guest:
-     * localStorage → Wishly.getWishlist()
-     *
-     * Logged-in:
-     * We will connect this to the API later.
-     */
-    const wishlist = window.Wishly?.getWishlist() || [];
+    try {
+      /*
+       * Get wishlist from Wishly
+       *
+       * Guest:
+       * localStorage → Wishly.getWishlist()
+       *
+       * Logged-in:
+       * API → database
+       */
+      const wishlist =
+        await window.Wishly?.getWishlist() || [];
 
-    console.log("Wishly wishlist page:", wishlist);
-
-    /*
-     * Empty wishlist
-     */
-    if (!wishlist.length) {
-      container.innerHTML = `
-        <p class="wishora-empty">
-          Your wishlist is empty.
-        </p>
-      `;
-
-      return;
-    }
-
-    /*
-     * Render saved wishlist items
-     */
-    container.innerHTML = wishlist
-      .map(function (item) {
-        const productId = item.productId;
-        const handle = item.handle || "";
-
-        return `
-          <div
-            class="wishora-product"
-            data-product-id="${productId}"
-          >
-
-            <div class="wishora-product-info">
-
-              <h3 class="wishora-product-title">
-                ${handle || "Wishlist Product"}
-              </h3>
-
-              <p class="wishora-product-id">
-                Product ID: ${productId}
-              </p>
-
-              <button
-                type="button"
-                class="wishora-remove"
-                data-remove-wishora="${productId}"
-              >
-                Remove
-              </button>
-
-            </div>
-
-          </div>
-        `;
-      })
-      .join("");
-
-    /*
-     * Remove product from wishlist
-     */
-    container.addEventListener("click", function (event) {
-      const removeButton = event.target.closest(
-        "[data-remove-wishora]"
+      console.log(
+        "Wishly wishlist page:",
+        wishlist
       );
 
-      if (!removeButton) {
-        return;
-      }
-
-      const productId =
-        removeButton.dataset.removeWishora;
-
-      if (!productId) {
-        return;
-      }
-
       /*
-       * Remove using Wishly's existing function
+       * Empty wishlist
        */
-      if (window.Wishly?.removeFromWishlist) {
-        window.Wishly.removeFromWishlist(productId);
-      }
-
-      /*
-       * Remove the product card from the page
-       */
-      const productElement =
-        removeButton.closest(".wishora-product");
-
-      if (productElement) {
-        productElement.remove();
-      }
-
-      /*
-       * Check if wishlist is now empty
-       */
-      const remainingProducts =
-        container.querySelectorAll(".wishora-product");
-
-      if (!remainingProducts.length) {
+      if (!wishlist.length) {
         container.innerHTML = `
           <p class="wishora-empty">
             Your wishlist is empty.
           </p>
         `;
+
+        return;
       }
 
-      console.log(
-        "Wishly: Removed from wishlist page",
-        productId
+      /*
+       * Render wishlist items
+       */
+      container.innerHTML = wishlist
+        .map(function (item) {
+          const productId =
+            item.productId;
+
+          const handle =
+            item.handle || "";
+
+          return `
+            <div
+              class="wishora-product"
+              data-product-id="${productId}"
+            >
+
+              <div class="wishora-product-info">
+
+                <h3 class="wishora-product-title">
+                  ${handle || "Wishlist Product"}
+                </h3>
+
+                <p class="wishora-product-id">
+                  Product ID: ${productId}
+                </p>
+
+                <button
+                  type="button"
+                  class="wishora-remove"
+                  data-remove-wishora="${productId}"
+                >
+                  Remove
+                </button>
+
+              </div>
+
+            </div>
+          `;
+        })
+        .join("");
+
+
+      /*
+       * Remove product from wishlist
+       */
+      container.addEventListener(
+        "click",
+        async function (event) {
+
+          const removeButton =
+            event.target.closest(
+              "[data-remove-wishora]"
+            );
+
+          if (!removeButton) {
+            return;
+          }
+
+          const productId =
+            removeButton.dataset
+              .removeWishora;
+
+          if (!productId) {
+            return;
+          }
+
+
+          try {
+
+            /*
+             * IMPORTANT:
+             * Wait for the wishlist operation.
+             *
+             * Guest:
+             * localStorage is updated.
+             *
+             * Logged-in:
+             * API/database is updated.
+             */
+            if (
+              window.Wishly?.removeFromWishlist
+            ) {
+
+              await window.Wishly
+                .removeFromWishlist(
+                  productId
+                );
+            }
+
+
+            /*
+             * Remove card from page
+             */
+            const productElement =
+              removeButton.closest(
+                ".wishora-product"
+              );
+
+            if (productElement) {
+              productElement.remove();
+            }
+
+
+            /*
+             * Check if wishlist is empty
+             */
+            const remainingProducts =
+              container.querySelectorAll(
+                ".wishora-product"
+              );
+
+            if (
+              !remainingProducts.length
+            ) {
+
+              container.innerHTML = `
+                <p class="wishora-empty">
+                  Your wishlist is empty.
+                </p>
+              `;
+            }
+
+
+            /*
+             * Update header counter/buttons
+             */
+            if (
+              window.Wishly?.updateCounter
+            ) {
+              await window.Wishly
+                .updateCounter();
+            }
+
+            if (
+              window.Wishly?.updateButtons
+            ) {
+              await window.Wishly
+                .updateButtons();
+            }
+
+
+            console.log(
+              "Wishly: Removed from wishlist page",
+              productId
+            );
+
+          } catch (error) {
+
+            console.error(
+              "Wishly: Failed to remove wishlist item",
+              error
+            );
+
+          }
+
+        }
       );
-    });
+
+    } catch (error) {
+
+      console.error(
+        "Wishly: Failed to load wishlist page",
+        error
+      );
+
+      container.innerHTML = `
+        <p class="wishora-empty">
+          Unable to load your wishlist.
+        </p>
+      `;
+    }
   });
 </script>
 

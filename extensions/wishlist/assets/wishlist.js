@@ -1,27 +1,70 @@
 (function () {
   const STORAGE_KEY = "wishly_wishlist";
 
-  /**
-   * Get guest wishlist from localStorage
+  /*
+   * ---------------------------------------------------------
+   * CUSTOMER STATE
+   * ---------------------------------------------------------
    */
-  function getWishlist() {
+
+  const customer = window.WishlyCustomer || {
+    loggedIn: false,
+    id: null
+  };
+
+  const isLoggedIn =
+    customer.loggedIn === true && !!customer.id;
+
+  console.log(
+    "Wishly mode:",
+    isLoggedIn ? "logged-in" : "guest"
+  );
+
+  console.log(
+    "Wishly customer ID:",
+    customer.id
+  );
+
+
+  /*
+   * ---------------------------------------------------------
+   * API
+   * ---------------------------------------------------------
+   */
+
+  const API_URL =
+    "https://floors-ability-resume-preference.trycloudflare.com/api/wishlist";
+
+
+  /*
+   * ---------------------------------------------------------
+   * GUEST WISHLIST
+   * ---------------------------------------------------------
+   */
+
+  function getGuestWishlist() {
     try {
-      const data = localStorage.getItem(STORAGE_KEY);
+      const data =
+        localStorage.getItem(STORAGE_KEY);
 
       if (!data) {
         return [];
       }
 
-      const wishlist = JSON.parse(data);
+      const wishlist =
+        JSON.parse(data);
 
       if (!Array.isArray(wishlist)) {
         return [];
       }
 
-      // Make sure every item has a consistent structure
       return wishlist
         .map((item) => {
-          if (typeof item === "string" || typeof item === "number") {
+
+          if (
+            typeof item === "string" ||
+            typeof item === "number"
+          ) {
             return {
               productId: String(item),
               handle: "",
@@ -29,20 +72,35 @@
             };
           }
 
-          if (item && typeof item === "object") {
+          if (
+            item &&
+            typeof item === "object"
+          ) {
             return {
-              productId: String(item.productId || item.id || ""),
-              handle: item.handle || "",
-              addedAt: item.addedAt || null
+              productId: String(
+                item.productId ||
+                item.id ||
+                ""
+              ),
+              handle:
+                item.handle || "",
+              addedAt:
+                item.addedAt || null
             };
           }
 
           return null;
         })
-        .filter((item) => item && item.productId);
+        .filter(
+          (item) =>
+            item &&
+            item.productId
+        );
+
     } catch (error) {
+
       console.error(
-        "Wishly: Failed to read wishlist",
+        "Wishly: Failed to read guest wishlist",
         error
       );
 
@@ -50,10 +108,13 @@
     }
   }
 
-  /**
+
+  /*
    * Save guest wishlist
    */
-  function saveWishlist(wishlist) {
+
+  function saveGuestWishlist(wishlist) {
+
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify(wishlist)
@@ -63,167 +124,629 @@
     updateCounter();
   }
 
-  /**
-   * Add product to guest wishlist
-   */
-  function addToWishlist(productId, handle) {
-    const wishlist = getWishlist();
 
-    const exists = wishlist.some(
-      (item) =>
-        String(item.productId) === String(productId)
+  /*
+   * ---------------------------------------------------------
+   * GET LOGGED-IN CUSTOMER WISHLIST
+   * ---------------------------------------------------------
+   */
+
+  async function getCustomerWishlist() {
+
+    if (!isLoggedIn) {
+      return [];
+    }
+
+    console.log(
+      "Wishly: Getting customer wishlist from API"
     );
+
+    try {
+
+      const response =
+        await fetch(
+          `${API_URL}?customerId=${encodeURIComponent(
+            String(customer.id)
+          )}`,
+          {
+            method: "GET",
+            headers: {
+              "Accept":
+                "application/json"
+            }
+          }
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok) {
+
+        throw new Error(
+          data.message ||
+          "Failed to get wishlist"
+        );
+      }
+
+
+      const items =
+        data?.wishlist?.items;
+
+
+      if (!Array.isArray(items)) {
+        return [];
+      }
+
+
+      /*
+       * Normalize API items
+       */
+
+      return items
+        .map((item) => {
+
+          if (
+            typeof item === "string" ||
+            typeof item === "number"
+          ) {
+            return {
+              productId: String(item),
+              handle: "",
+              addedAt: null
+            };
+          }
+
+
+          if (
+            item &&
+            typeof item === "object"
+          ) {
+            return {
+              productId: String(
+                item.productId ||
+                item.id ||
+                ""
+              ),
+              handle:
+                item.handle || "",
+              addedAt:
+                item.addedAt || null
+            };
+          }
+
+
+          return null;
+
+        })
+        .filter(
+          (item) =>
+            item &&
+            item.productId
+        );
+
+    } catch (error) {
+
+      console.error(
+        "Wishly: Failed to get customer wishlist",
+        error
+      );
+
+      return [];
+    }
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * SAVE LOGGED-IN CUSTOMER WISHLIST
+   * ---------------------------------------------------------
+   */
+
+  async function saveCustomerWishlist(
+    wishlist
+  ) {
+
+    if (!isLoggedIn) {
+
+      console.warn(
+        "Wishly: Cannot save customer wishlist while logged out"
+      );
+
+      return;
+    }
+
+    try {
+
+      const response =
+        await fetch(
+          API_URL,
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json"
+            },
+
+            body: JSON.stringify({
+              customerId:
+                String(customer.id),
+
+              shop:
+                window.Shopify?.shop ||
+                "hydrogende.myshopify.com",
+
+              items:
+                wishlist
+            })
+          }
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok) {
+
+        throw new Error(
+          data.message ||
+          "Failed to save wishlist"
+        );
+      }
+
+
+      console.log(
+        "Wishly: Customer wishlist saved",
+        data
+      );
+
+
+      return data;
+
+    } catch (error) {
+
+      console.error(
+        "Wishly: Failed to save customer wishlist",
+        error
+      );
+
+      throw error;
+    }
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * GET WISHLIST
+   * ---------------------------------------------------------
+   *
+   * Guest:
+   *     localStorage
+   *
+   * Logged in:
+   *     API
+   */
+
+  async function getWishlist() {
+
+    if (isLoggedIn) {
+
+      return await getCustomerWishlist();
+
+    }
+
+    return getGuestWishlist();
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * ADD TO WISHLIST
+   * ---------------------------------------------------------
+   */
+
+  async function addToWishlist(
+    productId,
+    handle
+  ) {
+
+    if (!productId) {
+      return;
+    }
+
+
+    /*
+     * -----------------------------------------------------
+     * GUEST
+     * -----------------------------------------------------
+     */
+
+    if (!isLoggedIn) {
+
+      const wishlist =
+        getGuestWishlist();
+
+
+      const exists =
+        wishlist.some(
+          (item) =>
+            String(
+              item.productId
+            ) ===
+            String(productId)
+        );
+
+
+      if (exists) {
+        return;
+      }
+
+
+      wishlist.push({
+        productId:
+          String(productId),
+
+        handle:
+          handle || "",
+
+        addedAt:
+          new Date().toISOString()
+      });
+
+
+      saveGuestWishlist(
+        wishlist
+      );
+
+
+      console.log(
+        "Wishly: Guest product added",
+        productId
+      );
+
+
+      return;
+    }
+
+
+    /*
+     * -----------------------------------------------------
+     * LOGGED-IN CUSTOMER
+     * -----------------------------------------------------
+     */
+
+    const wishlist =
+      await getCustomerWishlist();
+
+
+    const exists =
+      wishlist.some(
+        (item) =>
+          String(
+            item.productId
+          ) ===
+          String(productId)
+      );
+
 
     if (exists) {
       return;
     }
 
+
     wishlist.push({
-      productId: String(productId),
-      handle: handle || "",
-      addedAt: new Date().toISOString()
+      productId:
+        String(productId),
+
+      handle:
+        handle || "",
+
+      addedAt:
+        new Date().toISOString()
     });
 
-    saveWishlist(wishlist);
+
+    await saveCustomerWishlist(
+      wishlist
+    );
+
 
     console.log(
-      "Wishly: Product added",
+      "Wishly: Logged-in product added",
       productId
     );
   }
 
-  /**
-   * Remove product from guest wishlist
+
+  /*
+   * ---------------------------------------------------------
+   * REMOVE FROM WISHLIST
+   * ---------------------------------------------------------
    */
-  function removeFromWishlist(productId) {
-    const wishlist = getWishlist();
 
-    const updatedWishlist = wishlist.filter(
-      (item) =>
-        String(item.productId) !== String(productId)
-    );
+  async function removeFromWishlist(
+    productId
+  ) {
 
-    saveWishlist(updatedWishlist);
-
-    console.log(
-      "Wishly: Product removed",
-      productId
-    );
-  }
-
-  /**
-   * Toggle wishlist
-   */
-  function toggleWishlist(productId, handle) {
-    const wishlist = getWishlist();
-
-    const exists = wishlist.some(
-      (item) =>
-        String(item.productId) === String(productId)
-    );
-
-    if (exists) {
-      removeFromWishlist(productId);
-    } else {
-      addToWishlist(productId, handle);
+    if (!productId) {
+      return;
     }
-  }
 
-  /**
-   * Update wishlist heart buttons
-   */
-  function updateButtons() {
-    const wishlist = getWishlist();
 
-    document
-      .querySelectorAll("[data-wishora-product]")
-      .forEach((button) => {
-        const productId =
-          button.dataset.wishoraProduct;
+    /*
+     * -----------------------------------------------------
+     * GUEST
+     * -----------------------------------------------------
+     *
+     * ONLY localStorage changes.
+     *
+     * Database remains untouched.
+     */
 
-        const exists = wishlist.some(
+    if (!isLoggedIn) {
+
+      const wishlist =
+        getGuestWishlist();
+
+
+      const updatedWishlist =
+        wishlist.filter(
           (item) =>
-            String(item.productId) ===
+            String(
+              item.productId
+            ) !==
             String(productId)
         );
 
-        const heart =
-          button.querySelector(".wishora-heart");
 
-        if (exists) {
-          button.classList.add(
-            "wishora-active"
-          );
+      saveGuestWishlist(
+        updatedWishlist
+      );
 
-          if (heart) {
-            heart.textContent = "♥";
-          } else {
-            button.textContent = "♥";
-          }
 
-          button.setAttribute(
-            "aria-label",
-            "Remove from wishlist"
-          );
-        } else {
-          button.classList.remove(
-            "wishora-active"
-          );
+      console.log(
+        "Wishly: Guest product removed from localStorage",
+        productId
+      );
 
-          if (heart) {
-            heart.textContent = "♡";
-          } else {
-            button.textContent = "♡";
-          }
 
-          button.setAttribute(
-            "aria-label",
-            "Add to wishlist"
-          );
-        }
-      });
+      return;
+    }
+
+
+    /*
+     * -----------------------------------------------------
+     * LOGGED-IN CUSTOMER
+     * -----------------------------------------------------
+     *
+     * Database gets updated.
+     */
+
+    const wishlist =
+      await getCustomerWishlist();
+
+
+    const updatedWishlist =
+      wishlist.filter(
+        (item) =>
+          String(
+            item.productId
+          ) !==
+          String(productId)
+      );
+
+
+    await saveCustomerWishlist(
+      updatedWishlist
+    );
+
+
+    console.log(
+      "Wishly: Logged-in product removed from database",
+      productId
+    );
   }
 
-  /**
-   * Update wishlist counter
+
+  /*
+   * ---------------------------------------------------------
+   * TOGGLE WISHLIST
+   * ---------------------------------------------------------
    */
-  function updateCounter() {
-    const wishlist = getWishlist();
+
+  async function toggleWishlist(
+    productId,
+    handle
+  ) {
+
+    const wishlist =
+      await getWishlist();
+
+
+    const exists =
+      wishlist.some(
+        (item) =>
+          String(
+            item.productId
+          ) ===
+          String(productId)
+      );
+
+
+    if (exists) {
+
+      await removeFromWishlist(
+        productId
+      );
+
+    } else {
+
+      await addToWishlist(
+        productId,
+        handle
+      );
+    }
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * UPDATE HEART BUTTONS
+   * ---------------------------------------------------------
+   */
+
+  async function updateButtons() {
+
+    const wishlist =
+      await getWishlist();
+
+
+    document
+      .querySelectorAll(
+        "[data-wishora-product]"
+      )
+      .forEach(
+        (button) => {
+
+          const productId =
+            button.dataset
+              .wishoraProduct;
+
+
+          const exists =
+            wishlist.some(
+              (item) =>
+                String(
+                  item.productId
+                ) ===
+                String(productId)
+            );
+
+
+          const heart =
+            button.querySelector(
+              ".wishora-heart"
+            );
+
+
+          if (exists) {
+
+            button.classList.add(
+              "wishora-active"
+            );
+
+
+            if (heart) {
+
+              heart.textContent =
+                "♥";
+
+            } else {
+
+              button.textContent =
+                "♥";
+            }
+
+
+            button.setAttribute(
+              "aria-label",
+              "Remove from wishlist"
+            );
+
+          } else {
+
+            button.classList.remove(
+              "wishora-active"
+            );
+
+
+            if (heart) {
+
+              heart.textContent =
+                "♡";
+
+            } else {
+
+              button.textContent =
+                "♡";
+            }
+
+
+            button.setAttribute(
+              "aria-label",
+              "Add to wishlist"
+            );
+          }
+        }
+      );
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * UPDATE COUNTER
+   * ---------------------------------------------------------
+   */
+
+  async function updateCounter() {
+
+    const wishlist =
+      await getWishlist();
+
 
     document
       .querySelectorAll(
         "[data-wishora-counter]"
       )
-      .forEach((counter) => {
-        counter.textContent =
-          wishlist.length;
-      });
+      .forEach(
+        (counter) => {
+
+          counter.textContent =
+            wishlist.length;
+        }
+      );
   }
 
-  /**
-   * Handle wishlist button clicks
+
+  /*
+   * ---------------------------------------------------------
+   * WISHLIST BUTTON CLICK
+   * ---------------------------------------------------------
    */
+
   document.addEventListener(
     "click",
-    function (event) {
+    async function (event) {
+
       const button =
         event.target.closest(
           "[data-wishora-product]"
         );
 
+
       if (!button) {
         return;
       }
 
+
       event.preventDefault();
 
+
       const productId =
-        button.dataset.wishoraProduct;
+        button.dataset
+          .wishoraProduct;
+
 
       const handle =
-        button.dataset.wishoraHandle;
+        button.dataset
+          .wishoraHandle;
+
 
       if (!productId) {
+
         console.error(
           "Wishly: Product ID missing"
         );
@@ -231,41 +754,103 @@
         return;
       }
 
-      toggleWishlist(
-        productId,
-        handle
-      );
+
+      try {
+
+        await toggleWishlist(
+          productId,
+          handle
+        );
+
+
+        /*
+         * Update UI after operation
+         */
+
+        await updateButtons();
+        await updateCounter();
+
+      } catch (error) {
+
+        console.error(
+          "Wishly: Wishlist operation failed",
+          error
+        );
+      }
     }
   );
 
-  /**
-   * Initialize
+
+  /*
+   * ---------------------------------------------------------
+   * INITIALIZE
+   * ---------------------------------------------------------
    */
-  function init() {
-    updateButtons();
-    updateCounter();
+
+  async function init() {
+
+    console.log(
+      "Wishly initialized"
+    );
+
+    console.log(
+      "Wishly logged in:",
+      isLoggedIn
+    );
+
+
+    /*
+     * Load account wishlist and
+     * update hearts/counter.
+     */
+
+    await updateButtons();
+
+    await updateCounter();
   }
+
 
   if (
     document.readyState ===
     "loading"
   ) {
+
     document.addEventListener(
       "DOMContentLoaded",
       init
     );
+
   } else {
+
     init();
   }
 
-  /**
-   * Public Wishly API
+
+  /*
+   * ---------------------------------------------------------
+   * PUBLIC WISHLY API
+   * ---------------------------------------------------------
    */
+
   window.Wishly = {
+
     getWishlist,
+
+    getGuestWishlist,
+
+    getCustomerWishlist,
+
     addToWishlist,
+
     removeFromWishlist,
+
+    toggleWishlist,
+
     updateButtons,
-    updateCounter
+
+    updateCounter,
+
+    isLoggedIn
   };
+
 })();
