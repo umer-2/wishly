@@ -1,339 +1,94 @@
 import { useEffect } from "react";
-import { useFetcher } from "react-router";
+import { useLoaderData, useFetcher } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
-
-  return null;
-};
-
-export const action = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
-  const color = ["Red", "Orange", "Yellow", "Green"][
-    Math.floor(Math.random() * 4)
-  ];
-  const response = await admin.graphql(
-    `#graphql
-      mutation populateProduct($product: ProductCreateInput!) {
-        productCreate(product: $product) {
-          product {
-            id
-            title
-            handle
-            status
-            variants(first: 10) {
-              edges {
-                node {
-                  id
-                  price
-                  barcode
-                  createdAt
-                }
-              }
-            }
-            demoInfo: metafield(namespace: "$app", key: "demo_info") {
-              jsonValue
-            }
-          }
-        }
-      }`,
-    {
-      variables: {
-        product: {
-          title: `${color} Snowboard`,
-          metafields: [
-            {
-              namespace: "$app",
-              key: "demo_info",
-              value: "Created by React Router Template",
-            },
-          ],
-        },
-      },
-    },
-  );
-  const responseJson = await response.json();
-  const product = responseJson.data.productCreate.product;
-  const variantId = product.variants.edges[0].node.id;
-  const variantResponse = await admin.graphql(
-    `#graphql
-    mutation shopifyReactRouterTemplateUpdateVariant($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-      productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-        productVariants {
-          id
-          price
-          barcode
-          createdAt
-        }
-      }
-    }`,
-    {
-      variables: {
-        productId: product.id,
-        variants: [{ id: variantId, price: "100.00" }],
-      },
-    },
-  );
-  const variantResponseJson = await variantResponse.json();
-  const metaobjectResponse = await admin.graphql(
-    `#graphql
-    mutation shopifyReactRouterTemplateUpsertMetaobject($handle: MetaobjectHandleInput!, $values: JSON!) {
-      metaobjectUpsert(handle: $handle, values: $values) {
-        metaobject {
-          id
-          handle
-          values
-        }
-        userErrors {
-          field
-          message
-        }
-      }
-    }`,
-    {
-      variables: {
-        handle: {
-          type: "$app:example",
-          handle: "demo-entry",
-        },
-        values: {
-          title: "Demo Entry",
-          description:
-            "This metaobject was created by the Shopify app template to demonstrate the metaobject API.",
-        },
-      },
-    },
-  );
-  const metaobjectResponseJson = await metaobjectResponse.json();
-
-  return {
-    product: responseJson.data.productCreate.product,
-    variant: variantResponseJson.data.productVariantsBulkUpdate.productVariants,
-    metaobject: metaobjectResponseJson.data.metaobjectUpsert.metaobject,
-  };
+  const response = await admin.graphql(`#graphql
+    query WishlyOverview {
+      shop { name primaryDomain { host } }
+    }
+  `);
+  const { data } = await response.json();
+  return { shop: data?.shop || { name: "Your store" } };
 };
+
+const plans = [
+  { name: "Free", price: "$0", detail: "For small stores getting started", features: ["500 saved items", "Guest and customer wishlists", "Wishlist page and heart button"] },
+  { name: "Growth", price: "$25", detail: "For growing catalogs", features: ["5,000 saved items", "Everything in Free", "Basic wishlist analytics"] },
+  { name: "Scale", price: "$50", detail: "For high-intent shoppers", features: ["25,000 saved items", "Everything in Growth", "Email capture and exports"] },
+  { name: "Plus", price: "$100", detail: "For established brands", features: ["Unlimited saved items", "Everything in Scale", "Priority support"] },
+];
 
 export default function Index() {
+  const { shop } = useLoaderData();
   const fetcher = useFetcher();
   const shopify = useAppBridge();
-  const isLoading =
-    ["loading", "submitting"].includes(fetcher.state) &&
-    fetcher.formMethod === "POST";
 
   useEffect(() => {
-    if (fetcher.data?.product?.id) {
-      shopify.toast.show("Product created");
-    }
-  }, [fetcher.data?.product?.id, shopify]);
-  const generateProduct = () => fetcher.submit({}, { method: "POST" });
+    if (fetcher.data?.saved) shopify.toast.show("Settings saved");
+  }, [fetcher.data?.saved, shopify]);
 
   return (
-    <s-page heading="Shopify app template">
-      <s-button slot="primary-action" onClick={generateProduct}>
-        Generate a product
+    <s-page heading="Wishly" inlineSize="large">
+      <s-button slot="primary-action" onClick={() => fetcher.submit({ saved: "true" }, { method: "POST" })}>
+        Save settings
       </s-button>
 
-      <s-section heading="Congrats on creating a new Shopify app 🎉">
-        <s-paragraph>
-          This embedded app template uses{" "}
-          <s-link
-            href="https://shopify.dev/docs/apps/tools/app-bridge"
-            target="_blank"
-          >
-            App Bridge
-          </s-link>{" "}
-          interface examples like an{" "}
-          <s-link href="/app/additional">additional page in the app nav</s-link>
-          , as well as an{" "}
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql"
-            target="_blank"
-          >
-            Admin GraphQL
-          </s-link>{" "}
-          mutation demo, to provide a starting point for app development.
-        </s-paragraph>
-      </s-section>
-      <s-section heading="Get started with products">
-        <s-paragraph>
-          Generate a product with GraphQL and get the JSON output for that
-          product. Learn more about the{" "}
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql/latest/mutations/productCreate"
-            target="_blank"
-          >
-            productCreate
-          </s-link>{" "}
-          mutation in our API references. Includes a product{" "}
-          <s-link
-            href="https://shopify.dev/docs/apps/build/custom-data/metafields"
-            target="_blank"
-          >
-            metafield
-          </s-link>{" "}
-          and{" "}
-          <s-link
-            href="https://shopify.dev/docs/apps/build/custom-data/metaobjects"
-            target="_blank"
-          >
-            metaobject
-          </s-link>
-          .
-        </s-paragraph>
-        <s-stack direction="inline" gap="base">
-          <s-button
-            onClick={generateProduct}
-            {...(isLoading ? { loading: true } : {})}
-          >
-            Generate a product
-          </s-button>
-          {fetcher.data?.product && (
-            <s-button
-              onClick={() => {
-                shopify.intents.invoke?.("edit:shopify/Product", {
-                  value: fetcher.data?.product?.id,
-                });
-              }}
-              target="_blank"
-              variant="tertiary"
-            >
-              Edit product
-            </s-button>
-          )}
-        </s-stack>
-        {fetcher.data?.product && (
-          <s-section heading="productCreate mutation">
-            <s-stack direction="block" gap="base">
-              <s-box
-                padding="base"
-                borderWidth="base"
-                borderRadius="base"
-                background="subdued"
-              >
-                <pre
-                  style={{
-                    margin: 0,
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                  }}
-                >
-                  <code>{JSON.stringify(fetcher.data.product, null, 2)}</code>
-                </pre>
-              </s-box>
-
-              <s-heading>productVariantsBulkUpdate mutation</s-heading>
-              <s-box
-                padding="base"
-                borderWidth="base"
-                borderRadius="base"
-                background="subdued"
-              >
-                <pre
-                  style={{
-                    margin: 0,
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                  }}
-                >
-                  <code>{JSON.stringify(fetcher.data.variant, null, 2)}</code>
-                </pre>
-              </s-box>
-
-              <s-heading>metaobjectUpsert mutation</s-heading>
-              <s-box
-                padding="base"
-                borderWidth="base"
-                borderRadius="base"
-                background="subdued"
-              >
-                <pre
-                  style={{
-                    margin: 0,
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                  }}
-                >
-                  <code>
-                    {JSON.stringify(fetcher.data.metaobject, null, 2)}
-                  </code>
-                </pre>
-              </s-box>
+      <s-section>
+        <s-box padding="large" background="subdued" borderRadius="large">
+          <s-stack direction="block" gap="base">
+            <s-heading>Turn product interest into sales</s-heading>
+            <s-paragraph>Wishly gives shoppers a simple way to save products and gives you a clearer view of buying intent.</s-paragraph>
+            <s-stack direction="inline" gap="base">
+              <s-badge tone="success">{shop.name} connected</s-badge>
+              <s-text tone="subdued">Storefront extension ready</s-text>
             </s-stack>
-          </s-section>
-        )}
+          </s-stack>
+        </s-box>
       </s-section>
 
-      <s-section slot="aside" heading="App template specs">
-        <s-paragraph>
-          <s-text>Framework: </s-text>
-          <s-link href="https://reactrouter.com/" target="_blank">
-            React Router
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>Interface: </s-text>
-          <s-link
-            href="https://shopify.dev/docs/api/app-home/using-polaris-components"
-            target="_blank"
-          >
-            Polaris web components
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>API: </s-text>
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql"
-            target="_blank"
-          >
-            GraphQL
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>Custom data: </s-text>
-          <s-link
-            href="https://shopify.dev/docs/apps/build/custom-data"
-            target="_blank"
-          >
-            Metafields &amp; metaobjects
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>Database: </s-text>
-          <s-link href="https://www.prisma.io/" target="_blank">
-            Prisma
-          </s-link>
-        </s-paragraph>
+      <s-section heading="Overview">
+        <s-grid gap="base" gridTemplateColumns="repeat(3, 1fr)">
+          <s-box padding="base" borderWidth="base" borderRadius="base"><s-stack direction="block" gap="small"><s-text tone="subdued">Plan</s-text><s-heading>Free</s-heading><s-text>Ready to upgrade as you grow</s-text></s-stack></s-box>
+          <s-box padding="base" borderWidth="base" borderRadius="base"><s-stack direction="block" gap="small"><s-text tone="subdued">Saved products</s-text><s-heading>0 / 500</s-heading><s-text>Items saved by shoppers</s-text></s-stack></s-box>
+          <s-box padding="base" borderWidth="base" borderRadius="base"><s-stack direction="block" gap="small"><s-text tone="subdued">Storefront</s-text><s-heading>Live</s-heading><s-text>Heart button and wishlist page</s-text></s-stack></s-box>
+        </s-grid>
       </s-section>
 
-      <s-section slot="aside" heading="Next steps">
-        <s-unordered-list>
-          <s-list-item>
-            Build an{" "}
-            <s-link
-              href="https://shopify.dev/docs/apps/getting-started/build-app-example"
-              target="_blank"
-            >
-              example app
-            </s-link>
-          </s-list-item>
-          <s-list-item>
-            Explore Shopify&apos;s API with{" "}
-            <s-link
-              href="https://shopify.dev/docs/apps/tools/graphiql-admin-api"
-              target="_blank"
-            >
-              GraphiQL
-            </s-link>
-          </s-list-item>
-        </s-unordered-list>
+      <s-section heading="Plans that grow with you">
+        <s-grid gap="base" gridTemplateColumns="repeat(4, 1fr)">
+          {plans.map((plan) => (
+            <s-box key={plan.name} padding="base" borderWidth="base" borderRadius="base" background={plan.name === "Growth" ? "subdued" : undefined}>
+              <s-stack direction="block" gap="base">
+                <s-stack direction="inline" gap="small"><s-heading>{plan.name}</s-heading>{plan.name === "Growth" && <s-badge tone="info">Popular</s-badge>}</s-stack>
+                <s-heading>{plan.price}<s-text tone="subdued">{plan.price === "$0" ? " / forever" : " / month"}</s-text></s-heading>
+                <s-text tone="subdued">{plan.detail}</s-text>
+                <s-unordered-list>{plan.features.map((feature) => <s-list-item key={feature}>{feature}</s-list-item>)}</s-unordered-list>
+                <s-button variant={plan.name === "Free" ? "secondary" : "primary"} disabled={plan.name === "Free"}>{plan.name === "Free" ? "Current plan" : "Choose plan"}</s-button>
+              </s-stack>
+            </s-box>
+          ))}
+        </s-grid>
+      </s-section>
+
+      <s-section slot="aside" heading="Setup checklist">
+        <s-stack direction="block" gap="base">
+          <s-badge tone="success">1. Extension installed</s-badge>
+          <s-badge tone="success">2. Wishlist page added</s-badge>
+          <s-badge tone="success">3. Header link added</s-badge>
+          <s-paragraph>In your theme editor, add the Wishly blocks to finish your storefront setup.</s-paragraph>
+        </s-stack>
       </s-section>
     </s-page>
   );
 }
 
-export const headers = (headersArgs) => {
-  return boundary.headers(headersArgs);
+export const action = async ({ request }) => {
+  await authenticate.admin(request);
+  return { saved: true };
 };
+
+export const headers = (headersArgs) => boundary.headers(headersArgs);

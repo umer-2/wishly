@@ -2,15 +2,28 @@
   href="/pages/wishlist"
   class="wishora-header"
 >
-  ♡
+  <span class="wishora-header-icon" aria-hidden="true">♡</span>
   <span data-wishora-counter>0</span>
 </a>
 
 <style>
   .wishora-header {
     position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     text-decoration: none;
-    font-size: 24px;
+    color: inherit;
+    font-size: 20px;
+    line-height: 1;
+  }
+
+  .wishora-header-icon {
+    transition: color 160ms ease;
+  }
+
+  .wishora-header:hover .wishora-header-icon {
+    color: #c7473b;
   }
 
   .wishora-header span {
@@ -23,7 +36,7 @@
 
     border-radius: 50%;
 
-    background: black;
+    background: #263746;
     color: white;
 
     font-size: 11px;

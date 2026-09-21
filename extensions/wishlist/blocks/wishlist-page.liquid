@@ -1,271 +1,248 @@
-<div id="wishora-wishlist-page">
-  <h1 class="wishora-title">My Wishlist</h1>
+<div id="wishora-wishlist-page" class="wishora-page">
+  <div class="wishora-page-header">
+    <div>
+      <p class="wishora-eyebrow">Saved for later</p>
+      <h1 class="wishora-title">My wishlist</h1>
+      <p class="wishora-subtitle">Keep the pieces you love close, and come back when the time is right.</p>
+    </div>
+    <button type="button" class="wishora-clear" data-clear-wishora>Clear all</button>
+  </div>
 
-  <div
-    id="wishora-products"
-    class="wishora-products"
-  ></div>
+  <div id="wishora-products" class="wishora-products" aria-live="polite"></div>
 </div>
 
 <style>
-  .wishora-title {
+  .wishora-page {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 52px 24px 80px;
+    color: #263746;
+    font-family: inherit;
+  }
+
+  .wishora-page-header {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 24px;
     margin-bottom: 30px;
+  }
+
+  .wishora-eyebrow {
+    margin: 0 0 9px;
+    color: #c7473b;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+  }
+
+  .wishora-title {
+    margin: 0;
+    color: #263746;
+    font-size: clamp(30px, 4vw, 48px);
+    line-height: 1.05;
+  }
+
+  .wishora-subtitle {
+    max-width: 520px;
+    margin: 12px 0 0;
+    color: #64727c;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  .wishora-clear {
+    border: 1px solid #d9e0e3;
+    border-radius: 999px;
+    background: #fff;
+    color: #263746;
+    cursor: pointer;
+    padding: 10px 16px;
+    font: inherit;
+    font-size: 13px;
+    transition: border-color 160ms ease, color 160ms ease;
+  }
+
+  .wishora-clear:hover {
+    border-color: #c7473b;
+    color: #c7473b;
   }
 
   .wishora-products {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 20px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 28px 18px;
   }
 
   .wishora-product {
     position: relative;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid #e4e8e9;
+    background: #fff;
+    transition: transform 180ms ease, box-shadow 180ms ease;
+  }
+
+  .wishora-product:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 30px rgba(38, 55, 70, .1);
   }
 
   .wishora-product img {
     width: 100%;
+    aspect-ratio: 1 / 1.12;
+    object-fit: cover;
     display: block;
+    background: #f1f3f2;
   }
 
   .wishora-product-info {
-    padding-top: 12px;
+    padding: 16px;
   }
 
   .wishora-product-title {
-    margin: 0 0 5px;
-    font-size: 16px;
+    margin: 0 0 8px;
+    font-size: 15px;
+    line-height: 1.35;
   }
 
   .wishora-product-price {
-    margin-bottom: 12px;
+    margin: 0 0 15px;
+    color: #64727c;
+    font-size: 14px;
   }
 
   .wishora-remove {
     border: none;
-    background: none;
+    background: transparent;
+    color: #c7473b;
     cursor: pointer;
     padding: 0;
-    text-decoration: underline;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .wishora-view {
+    display: inline-block;
+    margin-left: 12px;
+    color: #64727c;
+    font-size: 13px;
+    text-decoration: none;
+  }
+
+  .wishora-empty {
+    grid-column: 1 / -1;
+    padding: 70px 20px;
+    border: 1px dashed #d9e0e3;
+    color: #64727c;
+    text-align: center;
   }
 
   @media (max-width: 749px) {
+    .wishora-page {
+      padding: 34px 16px 56px;
+    }
+
+    .wishora-page-header {
+      align-items: start;
+      flex-direction: column;
+    }
+
     .wishora-products {
       grid-template-columns: repeat(2, 1fr);
+    }
+
+    .wishora-clear {
+      align-self: flex-start;
     }
   }
 </style>
 
 <script>
   document.addEventListener("DOMContentLoaded", async function () {
-    const container =
-      document.getElementById("wishora-products");
+    const container = document.getElementById("wishora-products");
+    const clearButton = document.querySelector("[data-clear-wishora]");
 
-    if (!container) {
-      return;
-    }
+    if (!container || !window.Wishly?.getWishlist) return;
+
+    const escapeHtml = (value) => String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
+    const money = (value, currency) => new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: currency || "USD"
+    }).format(Number(value || 0));
+
+    const setEmpty = () => {
+      container.innerHTML = `<p class="wishora-empty">Your wishlist is waiting for its first favorite.</p>`;
+      clearButton.hidden = true;
+    };
+
+    const loadProduct = async (item) => {
+      if (!item.handle) return { item };
+      try {
+        const response = await fetch(`/products/${encodeURIComponent(item.handle)}.js`);
+        if (!response.ok) return { item };
+        return { item, product: await response.json() };
+      } catch (error) {
+        console.warn("Wishly: Product details unavailable", error);
+        return { item };
+      }
+    };
+
+    const render = async () => {
+      const wishlist = await window.Wishly.getWishlist();
+      if (!wishlist.length) return setEmpty();
+      clearButton.hidden = false;
+
+      const products = await Promise.all(wishlist.map(loadProduct));
+      container.innerHTML = products.map(({ item, product }) => {
+        const productId = escapeHtml(item.productId);
+        const title = escapeHtml(product?.title || item.handle || "Saved product");
+        const image = product?.featured_image || product?.images?.[0] || "";
+        const price = product?.price ? money(product.price / 100, product.currency) : "";
+        const url = product?.handle ? `/products/${encodeURIComponent(product.handle)}` : "#";
+        return `<article class="wishora-product" data-product-id="${productId}">
+          ${image ? `<a href="${url}"><img src="${escapeHtml(image)}" alt="${title}" loading="lazy"></a>` : ""}
+          <div class="wishora-product-info">
+            <h3 class="wishora-product-title">${title}</h3>
+            ${price ? `<p class="wishora-product-price">${price}</p>` : ""}
+            <button type="button" class="wishora-remove" data-remove-wishora="${productId}">Remove</button>
+            ${url !== "#" ? `<a class="wishora-view" href="${url}">View product</a>` : ""}
+          </div>
+        </article>`;
+      }).join("");
+    };
+
+    container.addEventListener("click", async function (event) {
+      const removeButton = event.target.closest("[data-remove-wishora]");
+      if (!removeButton) return;
+      removeButton.disabled = true;
+      await window.Wishly.removeFromWishlist(removeButton.dataset.removeWishora);
+      await render();
+      await window.Wishly.updateCounter();
+    });
+
+    clearButton?.addEventListener("click", async function () {
+      const wishlist = await window.Wishly.getWishlist();
+      clearButton.disabled = true;
+      for (const item of wishlist) await window.Wishly.removeFromWishlist(item.productId);
+      clearButton.disabled = false;
+      await render();
+      await window.Wishly.updateCounter();
+    });
 
     try {
-      /*
-       * Get wishlist from Wishly
-       *
-       * Guest:
-       * localStorage → Wishly.getWishlist()
-       *
-       * Logged-in:
-       * API → database
-       */
-      const wishlist =
-        await window.Wishly?.getWishlist() || [];
-
-      console.log(
-        "Wishly wishlist page:",
-        wishlist
-      );
-
-      /*
-       * Empty wishlist
-       */
-      if (!wishlist.length) {
-        container.innerHTML = `
-          <p class="wishora-empty">
-            Your wishlist is empty.
-          </p>
-        `;
-
-        return;
-      }
-
-      /*
-       * Render wishlist items
-       */
-      container.innerHTML = wishlist
-        .map(function (item) {
-          const productId =
-            item.productId;
-
-          const handle =
-            item.handle || "";
-
-          return `
-            <div
-              class="wishora-product"
-              data-product-id="${productId}"
-            >
-
-              <div class="wishora-product-info">
-
-                <h3 class="wishora-product-title">
-                  ${handle || "Wishlist Product"}
-                </h3>
-
-                <p class="wishora-product-id">
-                  Product ID: ${productId}
-                </p>
-
-                <button
-                  type="button"
-                  class="wishora-remove"
-                  data-remove-wishora="${productId}"
-                >
-                  Remove
-                </button>
-
-              </div>
-
-            </div>
-          `;
-        })
-        .join("");
-
-
-      /*
-       * Remove product from wishlist
-       */
-      container.addEventListener(
-        "click",
-        async function (event) {
-
-          const removeButton =
-            event.target.closest(
-              "[data-remove-wishora]"
-            );
-
-          if (!removeButton) {
-            return;
-          }
-
-          const productId =
-            removeButton.dataset
-              .removeWishora;
-
-          if (!productId) {
-            return;
-          }
-
-
-          try {
-
-            /*
-             * IMPORTANT:
-             * Wait for the wishlist operation.
-             *
-             * Guest:
-             * localStorage is updated.
-             *
-             * Logged-in:
-             * API/database is updated.
-             */
-            if (
-              window.Wishly?.removeFromWishlist
-            ) {
-
-              await window.Wishly
-                .removeFromWishlist(
-                  productId
-                );
-            }
-
-
-            /*
-             * Remove card from page
-             */
-            const productElement =
-              removeButton.closest(
-                ".wishora-product"
-              );
-
-            if (productElement) {
-              productElement.remove();
-            }
-
-
-            /*
-             * Check if wishlist is empty
-             */
-            const remainingProducts =
-              container.querySelectorAll(
-                ".wishora-product"
-              );
-
-            if (
-              !remainingProducts.length
-            ) {
-
-              container.innerHTML = `
-                <p class="wishora-empty">
-                  Your wishlist is empty.
-                </p>
-              `;
-            }
-
-
-            /*
-             * Update header counter/buttons
-             */
-            if (
-              window.Wishly?.updateCounter
-            ) {
-              await window.Wishly
-                .updateCounter();
-            }
-
-            if (
-              window.Wishly?.updateButtons
-            ) {
-              await window.Wishly
-                .updateButtons();
-            }
-
-
-            console.log(
-              "Wishly: Removed from wishlist page",
-              productId
-            );
-
-          } catch (error) {
-
-            console.error(
-              "Wishly: Failed to remove wishlist item",
-              error
-            );
-
-          }
-
-        }
-      );
-
+      await render();
     } catch (error) {
-
-      console.error(
-        "Wishly: Failed to load wishlist page",
-        error
-      );
-
-      container.innerHTML = `
-        <p class="wishora-empty">
-          Unable to load your wishlist.
-        </p>
-      `;
+      console.error("Wishly: Failed to load wishlist page", error);
+      container.innerHTML = `<p class="wishora-empty">Unable to load your wishlist right now.</p>`;
     }
   });
 </script>

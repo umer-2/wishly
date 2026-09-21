@@ -33,7 +33,7 @@
    */
 
   const API_URL =
-    "https://floors-ability-resume-preference.trycloudflare.com/api/wishlist";
+    `${window.Shopify?.routes?.root || "/"}apps/wishly/api/wishlist`;
 
 
   /*
