@@ -1,152 +1,84 @@
-# Wishly — Shopify Wishlist App
+# Wishly — Wishlist App for Shopify
 
-Wishly is a Shopify wishlist app that allows customers to save products they are interested in and access their wishlist from the storefront.
+Wishly is a wishlist application for Shopify that allows shoppers to save products they love and return to them later.
 
-The app supports both **guest visitors** and **logged-in Shopify customers**, using different storage strategies for each.
+It supports both guest visitors and logged-in customers while providing merchants with a Shopify-native wishlist experience.
 
-> **Current status:** Active development. The core guest wishlist, logged-in customer wishlist API, Prisma database storage, wishlist buttons, counter, and wishlist page are implemented.
+> **Status:** 🚧 Currently under active development.
 
----
+## ✨ Features
 
-## Features
+* ❤️ Add/remove products from wishlist
+* 👤 Guest wishlist support
+* 🔐 Logged-in customer wishlists
+* 💾 Persistent customer wishlist storage
+* 🔢 Wishlist counter
+* 🛍️ Product card wishlist buttons
+* 📄 Dedicated wishlist page
+* 🎨 Theme App Extension integration
+* ⚡ Asynchronous wishlist updates
+* 📱 Responsive storefront support
+* 🔄 Guest-to-customer synchronization planned
 
-### Guest Wishlist
+## 🏗️ Architecture
 
-Guest customers can:
+Wishly uses different storage strategies depending on the customer state.
 
-* Add products to their wishlist
-* Remove products from their wishlist
-* View saved wishlist products
-* See active/inactive wishlist heart states
-* See the wishlist item counter
-
-Guest wishlist data is stored entirely in the browser using:
-
-```text
-localStorage
-```
-
-Storage key:
-
-```text
-wishly_wishlist
-```
-
-No API request or database storage is required for normal guest wishlist operations.
-
----
-
-### Logged-In Customer Wishlist
-
-Logged-in Shopify customers use the Wishly backend API.
-
-Architecture:
-
-```text
-Logged-in Customer
-        ↓
-   Wishly API
-        ↓
- Prisma Database
-```
-
-The customer's Shopify customer ID is currently used to associate the wishlist with the customer.
-
-The database wishlist remains available independently of the browser's guest wishlist.
-
----
-
-## Wishlist Architecture
-
-### Guest
+### Guest Customers
 
 ```text
 Storefront
     ↓
-wishlist.js
+Wishly
     ↓
-localStorage
+Browser Storage
 ```
 
-### Logged-In Customer
+Guest wishlists are stored locally in the customer's browser.
+
+### Logged-In Customers
 
 ```text
 Storefront
-    ↓
-wishlist.js
     ↓
 Wishly API
     ↓
-Prisma
-    ↓
-Wishlist Database
+Application Database
 ```
 
-The application determines whether a customer is logged in using Shopify Liquid.
+Logged-in customers receive a persistent wishlist associated with their customer account.
 
-Example:
+## 🛠️ Tech Stack
 
-```liquid
-<script>
-  window.WishlyCustomer = {
-    loggedIn: {% if customer %}true{% else %}false{% endif %},
-    id: {% if customer %}"{{ customer.id }}"{% else %}null{% endif %}
-  };
-</script>
-```
-
-The storefront JavaScript can then access:
-
-```js
-window.WishlyCustomer.loggedIn
-window.WishlyCustomer.id
-```
-
----
-
-## Tech Stack
-
-Wishly currently uses:
+Wishly is built with:
 
 * Shopify
 * Shopify CLI
-* Shopify React Router 7 app template
+* Shopify React Router
+* React
 * JavaScript / JSX
-* Theme App Extension
+* Theme App Extensions
 * Liquid
 * Vanilla JavaScript
 * Prisma ORM
-* SQLite for local development
-* Shopify Admin API
 * Shopify App Bridge
-* Shopify Polaris / Shopify UI components
+* Shopify Admin API
+* Shopify UI components
 
----
-
-## Project Structure
-
-A simplified project structure looks like:
+## 📁 Project Structure
 
 ```text
 wishly/
 │
 ├── app/
 │   ├── routes/
-│   │   ├── app.jsx
-│   │   └── api.wishlist.js
-│   │
 │   ├── db.server.js
 │   └── shopify.server.js
 │
 ├── extensions/
 │   └── wishly/
 │       ├── assets/
-│       │   └── wishlist.js
-│       │
 │       └── blocks/
-│           ├── app-embed.liquid
-│           ├── wishlist-button.liquid
-│           └── wishlist-page.liquid
 │
 ├── prisma/
 │   ├── schema.prisma
@@ -157,618 +89,155 @@ wishly/
 └── README.md
 ```
 
-Actual extension/block filenames may differ depending on the local project structure.
+## 🚀 Getting Started
 
----
+### Requirements
 
-# Database
+Before starting, make sure you have:
 
-Wishly uses Prisma for database access.
+* Node.js
+* npm
+* Shopify CLI
+* A Shopify Partner account
+* A Shopify development store
 
-The current development database is SQLite.
-
-Example Prisma configuration:
-
-```prisma
-datasource db {
-  provider = "sqlite"
-  url      = "file:dev.sqlite"
-}
-```
-
----
-
-## Wishlist Model
-
-The current wishlist model is:
-
-```prisma
-model Wishlist {
-  id         String   @id @default(cuid())
-  customerId String   @unique
-  shop       String
-  items      Json
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
-```
-
-Each logged-in customer currently has one wishlist record.
-
-Example:
-
-```json
-{
-  "customerId": "9259301699819",
-  "shop": "example.myshopify.com",
-  "items": [
-    {
-      "productId": "9105835557099",
-      "handle": "vanilla-candle",
-      "addedAt": "2026-09-06T20:43:21.047Z"
-    }
-  ]
-}
-```
-
----
-
-# Wishlist API
-
-The wishlist API route is currently:
-
-```text
-/api/wishlist
-```
-
-It supports retrieving and saving logged-in customer wishlist data.
-
----
-
-## GET Wishlist
-
-Example request:
-
-```text
-GET /api/wishlist?customerId=9259301699819
-```
-
-Example response:
-
-```json
-{
-  "success": true,
-  "message": "Wishlist retrieved successfully",
-  "wishlist": {
-    "id": "wishlist_id",
-    "customerId": "9259301699819",
-    "shop": "example.myshopify.com",
-    "items": [
-      {
-        "productId": "9105835557099",
-        "handle": "vanilla-candle",
-        "addedAt": "2026-09-06T20:43:21.047Z"
-      }
-    ]
-  }
-}
-```
-
-If the customer does not have a wishlist yet, the API returns an empty items array.
-
----
-
-## POST Wishlist
-
-Example request:
-
-```text
-POST /api/wishlist
-```
-
-Body:
-
-```json
-{
-  "customerId": "9259301699819",
-  "shop": "example.myshopify.com",
-  "items": [
-    {
-      "productId": "9105835557099",
-      "handle": "vanilla-candle",
-      "addedAt": "2026-09-06T20:43:21.047Z"
-    }
-  ]
-}
-```
-
-The API uses Prisma `upsert()` so that the customer's wishlist is either created or updated.
-
----
-
-# Storefront Wishlist API
-
-The Theme App Extension exposes a global JavaScript API:
-
-```js
-window.Wishly
-```
-
-Currently available methods include:
-
-```js
-window.Wishly.getWishlist();
-
-window.Wishly.getGuestWishlist();
-
-window.Wishly.getCustomerWishlist();
-
-window.Wishly.addToWishlist(
-  productId,
-  handle
-);
-
-window.Wishly.removeFromWishlist(
-  productId
-);
-
-window.Wishly.toggleWishlist(
-  productId,
-  handle
-);
-
-window.Wishly.updateButtons();
-
-window.Wishly.updateCounter();
-```
-
-You can also check the current customer state:
-
-```js
-window.Wishly.isLoggedIn
-```
-
----
-
-# Product Wishlist Button
-
-Products can expose a wishlist button using data attributes.
-
-Example:
-
-```liquid
-<button
-  type="button"
-  class="wishora-heart-button"
-  data-wishora-product="{{ product.id }}"
-  data-wishora-handle="{{ product.handle }}"
-  aria-label="Add {{ product.title | escape }} to wishlist"
->
-  <span class="wishora-heart">♡</span>
-</button>
-```
-
-Wishly automatically detects buttons containing:
-
-```text
-data-wishora-product
-```
-
-The button changes between:
-
-```text
-♡
-```
-
-and:
-
-```text
-♥
-```
-
-depending on whether the product exists in the wishlist.
-
----
-
-# Wishlist Counter
-
-Wishlist counters can use:
-
-```html
-<span data-wishora-counter>0</span>
-```
-
-Wishly automatically updates elements containing:
-
-```text
-data-wishora-counter
-```
-
-when the wishlist changes.
-
----
-
-# Wishlist Page
-
-The Theme App Extension also contains a wishlist page section.
-
-The page retrieves wishlist data using:
-
-```js
-const wishlist =
-  await window.Wishly?.getWishlist() || [];
-```
-
-Because `getWishlist()` is asynchronous, it must be called using `await`.
-
-For guest customers:
-
-```text
-getWishlist()
-    ↓
-localStorage
-```
-
-For logged-in customers:
-
-```text
-getWishlist()
-    ↓
-GET /api/wishlist
-    ↓
-Prisma Database
-```
-
----
-
-# Removing Wishlist Items
-
-Removing an item is also asynchronous:
-
-```js
-await window.Wishly.removeFromWishlist(
-  productId
-);
-```
-
-For guests, this modifies localStorage.
-
-For logged-in customers, this updates the wishlist stored in the application database.
-
----
-
-# Running the App Locally
-
-Install dependencies:
+### Install Dependencies
 
 ```bash
 npm install
 ```
 
-Generate the Prisma client:
+### Generate Prisma Client
 
 ```bash
 npx prisma generate
 ```
 
-Run Prisma migrations:
+### Run Database Migrations
 
 ```bash
 npx prisma migrate dev
 ```
 
-Start the Shopify development environment:
+### Start Development
 
 ```bash
 shopify app dev
 ```
 
-Shopify CLI will start the application and Theme App Extension development environment.
+Follow the Shopify CLI instructions to install and preview the app on your development store.
 
----
+## ❤️ Storefront Wishlist
 
-# Prisma Commands
+Wishly provides wishlist controls through a Shopify Theme App Extension.
 
-Create a migration:
+Products can be added or removed without requiring a page reload.
 
-```bash
-npx prisma migrate dev --name migration_name
-```
-
-Generate Prisma Client:
-
-```bash
-npx prisma generate
-```
-
-Check migration status:
-
-```bash
-npx prisma migrate status
-```
-
-Open Prisma Studio:
-
-```bash
-npx prisma studio
-```
-
-Prisma Studio can be useful for inspecting customer wishlist records during development.
-
----
-
-# Development API URL
-
-During local development, the storefront currently communicates with the application through the Shopify CLI/Cloudflare development tunnel.
-
-For example:
-
-```js
-const API_URL =
-  "https://your-current-tunnel.trycloudflare.com/api/wishlist";
-```
-
-The Cloudflare tunnel URL may change after restarting:
-
-```bash
-shopify app dev
-```
-
-If wishlist API requests suddenly stop working, verify that `wishlist.js` contains the current development application URL.
-
-This hard-coded tunnel URL is temporary and should be replaced with a production-safe routing strategy before release.
-
----
-
-# Current Wishlist Flow
-
-## Guest adds a product
+The storefront integration supports:
 
 ```text
-Customer clicks heart
-        ↓
-toggleWishlist()
-        ↓
-addToWishlist()
-        ↓
-localStorage
-        ↓
-Update heart
-        ↓
-Update counter
+Product Card
+    ↓
+Wishlist Button
+    ↓
+Wishly
+    ↓
+Update Wishlist
+    ↓
+Update Button + Counter
 ```
 
----
+## 👤 Guest Wishlist
 
-## Logged-in customer adds a product
+Visitors do not need an account to start creating a wishlist.
 
-```text
-Customer clicks heart
-        ↓
-toggleWishlist()
-        ↓
-GET existing wishlist
-        ↓
-Add product
-        ↓
-POST updated wishlist
-        ↓
-Prisma Database
-        ↓
-Update heart
-        ↓
-Update counter
-```
+Guest wishlist data remains inside the customer's browser until account synchronization is performed.
 
----
+This provides a fast wishlist experience without requiring authentication.
 
-## Logged-in customer opens wishlist page
+## 🔐 Customer Wishlist
 
-```text
-Wishlist Page
-      ↓
-getWishlist()
-      ↓
-getCustomerWishlist()
-      ↓
-GET /api/wishlist
-      ↓
-Prisma
-      ↓
-Render wishlist
-```
+When a customer is authenticated, Wishly can retrieve and persist their wishlist through the application backend.
 
----
+This allows the wishlist to remain associated with the customer instead of depending entirely on browser storage.
 
-# Planned Wishlist Synchronization
+## 📄 Wishlist Page
 
-The intended login synchronization flow is:
+Wishly includes support for a dedicated storefront wishlist page where customers can:
 
-```text
-Guest Wishlist
-localStorage
-      ↓
-Customer logs in
-      ↓
-Fetch account wishlist
-      ↓
-Merge guest + account wishlist
-      ↓
-Remove duplicates
-      ↓
-Save merged wishlist
-      ↓
-Clear guest wishlist
-```
+* View saved products
+* Remove products
+* Access saved products
+* See their current wishlist state
 
-This functionality is planned and is not yet fully implemented.
+Additional product information and storefront customization are being developed.
 
----
+## 🗺️ Roadmap
 
-# Planned Logout Behavior
+Planned improvements include:
 
-The desired behavior is:
+* Guest-to-customer wishlist synchronization
+* Improved product cards
+* Product images and pricing
+* Variant support
+* Wishlist sharing
+* Merchant customization options
+* Custom wishlist button styles
+* Wishlist analytics
+* Improved loading and error states
+* Customer metafield integration
+* Multi-device synchronization
+* Production database support
+* Additional theme compatibility
+* Performance optimization
 
-```text
-Account wishlist:
+## 🔒 Security
 
-[A, B, C]
+Wishly is currently under development.
 
-      ↓ Logout
+Authentication, API authorization, validation, privacy handling, and production security are being hardened before a public production release.
 
-Guest receives local snapshot:
+Never commit credentials, API secrets, access tokens, database credentials, or private environment configuration to the repository.
 
-[A, B, C]
+Use environment variables for sensitive configuration.
 
-      ↓
+## 🧪 Development Status
 
-Guest removes A
+| Feature                   | Status |
+| ------------------------- | ------ |
+| Theme App Extension       | ✅      |
+| Guest Wishlist            | ✅      |
+| Customer Wishlist         | ✅      |
+| Wishlist API              | ✅      |
+| Database Storage          | ✅      |
+| Wishlist Button           | ✅      |
+| Wishlist Counter          | ✅      |
+| Wishlist Page             | ✅      |
+| Guest → Customer Sync     | 🚧     |
+| Product Details           | 🚧     |
+| Merchant Customization    | 🚧     |
+| Production Hardening      | 🚧     |
+| Shopify App Store Release | 🚧     |
 
-Guest localStorage:
+Legend:
 
-[B, C]
+* ✅ Implemented
+* 🚧 In development
 
-Database remains:
+## 🤝 Contributing
 
-[A, B, C]
+Wishly is currently under active development.
 
-      ↓ Login again
+Issues and suggestions are welcome through the repository's issue tracker.
 
-Account wishlist:
+Please avoid submitting sensitive store information, credentials, access tokens, or customer information in public issues.
 
-[A, B, C]
-```
+## 📜 License
 
-Guest actions after logout must not modify the customer's permanent database wishlist.
+A license has not yet been specified for this project.
 
-This requires an account wishlist snapshot/cache strategy and will be implemented separately.
+Unless a license is added, the source code should not be assumed to grant permission for copying, modification, or redistribution.
 
 ---
 
-# Customer Metafields
-
-Shopify Customer metafield synchronization has been considered for Wishly.
-
-The intended future architecture could be:
-
-```text
-Logged-in Customer
-        ↓
-Wishly API
-       ↙ ↘
-App Database
-Shopify Customer Metafield
-```
-
-Customer metafield synchronization is **not currently part of the active implementation**.
-
-The application database is currently the source of truth for logged-in customer wishlists.
-
----
-
-# Important Security Notice
-
-The current wishlist API accepts a `customerId` supplied by storefront JavaScript.
-
-For example:
-
-```text
-/api/wishlist?customerId=9259301699819
-```
-
-This is acceptable only for the current development/testing stage.
-
-It must **not** be considered secure customer authentication.
-
-Before production/App Store release, the application must verify storefront customer identity server-side and prevent customers from retrieving or modifying another customer's wishlist by changing a customer ID.
-
-The production version should use an appropriate Shopify-supported authenticated storefront flow and stricter CORS/API validation.
-
----
-
-# Production TODO
-
-Before submitting Wishly to the Shopify App Store, the project still needs production hardening and additional functionality, including:
-
-* Secure storefront customer authentication
-* Remove trust in browser-supplied customer IDs
-* Production database such as PostgreSQL
-* Replace hard-coded development tunnel URL
-* Restrict CORS
-* Guest-to-customer wishlist migration
-* Logout wishlist snapshot behavior
-* Better API error handling
-* Request validation
-* Shop/customer isolation
-* Loading states
-* Empty/error states
-* Product information on wishlist page
-* Product images
-* Product prices
-* Product links
-* Variant handling where required
-* Pagination or wishlist limits where appropriate
-* App uninstall cleanup
-* GDPR/privacy compliance
-* Shopify mandatory privacy webhooks
-* Production logging
-* Rate-limit/error handling
-* App settings
-* Merchant onboarding
-* Theme compatibility testing
-* App Store submission review
-
----
-
-# Current Development Status
-
-| Feature                          | Status                        |
-| -------------------------------- | ----------------------------- |
-| Theme App Extension              | ✅ Working                     |
-| App Embed                        | ✅ Working                     |
-| Customer detection               | ✅ Working                     |
-| Guest localStorage wishlist      | ✅ Working                     |
-| Product heart button             | ✅ Working                     |
-| Wishlist counter                 | ✅ Working                     |
-| Prisma Wishlist model            | ✅ Working                     |
-| Wishlist POST API                | ✅ Working                     |
-| Wishlist GET API                 | ✅ Working                     |
-| Logged-in DB wishlist            | ✅ Working                     |
-| Wishlist page                    | ✅ Working                     |
-| Remove from wishlist             | ✅ Working                     |
-| Guest → account migration        | 🚧 Planned                    |
-| Logout snapshot                  | 🚧 Planned                    |
-| Customer metafield sync          | ⏸ Deferred                    |
-| Secure storefront authentication | 🚧 Required before production |
-| PostgreSQL production DB         | 🚧 Required before production |
-| App Store production hardening   | 🚧 Planned                    |
-
----
-
-# Development Principles
-
-Wishly currently follows this storage rule:
-
-```text
-Guest
-  ↓
-localStorage only
-
-Logged-in Customer
-  ↓
-Wishly API
-  ↓
-App Database
-```
-
-The application database should remain the permanent source of truth for authenticated customer wishlists.
-
-Guest wishlist operations should never accidentally modify a logged-in customer's permanent wishlist.
-
----
-
-# License
-
-This project is currently private and under development.
-
-All rights reserved.
+Built for Shopify with ❤️
